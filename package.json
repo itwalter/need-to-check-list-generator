@@ -1,0 +1,18 @@
+{
+  "name": "@cofacts/need-to-check-list-generator",
+  "version": "1.0.0",
+  "description": "Generate the list of need to fact-checking articles, which is used to dispatch tasks in meetup",
+  "engines": {
+    "node": "^7.7.3"
+  },
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Lucien Lee",
+  "license": "MIT",
+  "dependencies": {
+    "request": "^2.81.0"
+  }
+}
