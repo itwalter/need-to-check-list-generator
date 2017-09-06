@@ -3,13 +3,15 @@ const path = require('path')
 const request = require('request')
 const mkdirp = require('mkdirp')
 const commandLineArgs = require('command-line-args')
+const XLSX = require('xlsx')
 
 const DIST = {
   path: 'dist',
-  filename: 'articles.csv'
+  filename: 'articles.xlsx'
 }
 
 const optionDefinitions = [
+  { name: 'people', alias: 'p', type: Number },
   { name: 'number', alias: 'n', type: Number }
 ]
 
@@ -56,18 +58,31 @@ async function getArticlesByOrder (amount, order) {
 
 (async () => {
   const options = commandLineArgs(optionDefinitions)
-  const amount = Number.isInteger(options.number) ? options.number : 100
+  const number = Number.isInteger(options.number) ? options.number : 100
+  const people = Number.isInteger(options.number) ? options.people : 2
+  const amount = people * number
   const newest = await getArticlesByOrder(amount, '{createdAt: DESC}')
   const mostAsked = await getArticlesByOrder(amount, '{replyRequestCount: DESC}')
-  const list = shuffle(Array.from(new Set([].concat.apply(newest, mostAsked).slice(0, amount))))
-  const csv = list.reduce((acc, val, idx) => {
-    return acc.concat(idx, ', ', `https://cofacts.g0v.tw/article/${val}`, '\n')
-  }, 'ID, Link\n')
-
+  const list = shuffle(Array.from(new Set([].concat.apply(newest, mostAsked)))).slice(0, amount)
+  const jsons = [...Array(people).keys()]
+    .map((idx) => list.slice(idx * number, (idx + 1) * number)
+      .map((val, idx) => ({
+        ID: idx + 1,
+        Link: `https://cofacts.g0v.tw/article/${val}`
+      })
+    )
+  )
+  const sheetNames = [...Array(people).keys()].map(idx => `No. ${idx + 1}`)
+  const workbook = {
+    SheetNames: sheetNames,
+    Sheets: sheetNames.reduce((acc, cur, idx) => {
+      return Object.assign({}, acc, {[sheetNames[idx]]: XLSX.utils.json_to_sheet(jsons[idx])})
+    }, {})
+  }
+  const timestamp = new Date().toISOString().replace(/:|-|T/g, '').split('.')[0]
   mkdirp.sync(DIST.path)
 
-  fs.writeFile(path.resolve(DIST.path, DIST.filename), csv, (err) => {
-   if (err) throw err
-    console.log('The file has been saved!')
-  })
+  XLSX.writeFileAsync(path.resolve(DIST.path, `${timestamp}-${DIST.filename}`), workbook, () => {
+    console.log('File has been saved!')
+  });
 })()

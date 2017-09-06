@@ -6,12 +6,11 @@ The script to generate the list of need-to-check articles in order to dispatch t
 Run with node above v7
 
 ```js
-npm start -- -n <number of articles you want>
+npm start -- -p <number of people> -n <number of articles per person> 
 ```
 
 
 ## Todo
 
-- Generate `.xls` with multiple sheets by spliting articles equally.
 - Update to google drive automaticlly.
 
