@@ -11,8 +11,8 @@ const DIST = {
 }
 
 const optionDefinitions = [
-  { name: 'people', alias: 'p', type: Number },
-  { name: 'number', alias: 'n', type: Number }
+  { name: 'people', alias: 'p', type: Number, defaultValue: 2 },
+  { name: 'number', alias: 'n', type: Number, defaultValue: 100 },
 ]
 
 function shuffle (array) {
