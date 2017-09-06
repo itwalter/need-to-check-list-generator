@@ -64,8 +64,11 @@ async function getArticlesByOrder (amount, order) {
   const newest = await getArticlesByOrder(amount, '{createdAt: DESC}')
   const mostAsked = await getArticlesByOrder(amount, '{replyRequestCount: DESC}')
   const list = shuffle(Array.from(new Set([].concat.apply(newest, mostAsked)))).slice(0, amount)
+
+  const actualNumber = Math.round(list.length / people)
+
   const jsons = [...Array(people).keys()]
-    .map((idx) => list.slice(idx * number, (idx + 1) * number)
+    .map((idx) => list.slice(idx * actualNumber, (idx + 1) * actualNumber)
       .map((val, idx) => ({
         ID: idx + 1,
         Link: `https://cofacts.g0v.tw/article/${val}`
@@ -83,6 +86,7 @@ async function getArticlesByOrder (amount, order) {
   mkdirp.sync(DIST.path)
 
   XLSX.writeFileAsync(path.resolve(DIST.path, `${timestamp}-${DIST.filename}`), workbook, () => {
+    if (actualNumber !== number) console.log(`Only ${list.length} articles haven't replied, so each one get ${actualNumber} articles.`)
     console.log('File has been saved!')
   });
 })()
