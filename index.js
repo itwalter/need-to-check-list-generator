@@ -56,13 +56,13 @@ async function getArticlesByOrder (amount, order) {
 
 (async () => {
   const options = commandLineArgs(optionDefinitions)
-  const amount =  Number.isInteger(options.number) || 100
+  const amount = Number.isInteger(options.number) ? options.number : 100
   const newest = await getArticlesByOrder(amount, '{createdAt: DESC}')
   const mostAsked = await getArticlesByOrder(amount, '{replyRequestCount: DESC}')
   const list = shuffle(Array.from(new Set([].concat.apply(newest, mostAsked).slice(0, amount))))
   const csv = list.reduce((acc, val, idx) => {
     return acc.concat(idx, ', ', `https://cofacts.g0v.tw/article/${val}`, '\n')
-  }, 'ID, Link\n');
+  }, 'ID, Link\n')
 
   mkdirp.sync(DIST.path)
 
