@@ -13,7 +13,15 @@ const DIST = {
 const optionDefinitions = [
   { name: 'people', alias: 'p', type: Number, defaultValue: 2 },
   { name: 'number', alias: 'n', type: Number, defaultValue: 100 },
+  { name: 'distribution', alias: 'd', type: Distribution, multiple: true }
 ]
+
+function Distribution (assign) {
+  if (!(this instanceof Distribution)) return new Distribution(assign)
+  const pair = assign.match(/(\d+):(\d+)/)
+  this.number = parseInt(pair[1])
+  this.people = parseInt(pair[2])
+}
 
 function shuffle (array) {
   return array.map((item) => {
@@ -58,35 +66,44 @@ async function getArticlesByOrder (amount, order) {
 
 (async () => {
   const options = commandLineArgs(optionDefinitions)
-  const number = Number.isInteger(options.number) ? options.number : 100
-  const people = Number.isInteger(options.number) ? options.people : 2
-  const amount = people * number
+  const distribution = options.distribution ? options.distribution : [Distribution(`${options.number}:${options.people}`)]
+  const flat = distribution.reduce((acc, cur) => acc.concat(Array(cur.people).fill(cur.number)), [])
+  const amount =  distribution.reduce((acc, cur) => acc += cur.number * cur.people, 0)
   const newest = await getArticlesByOrder(amount, '{createdAt: DESC}')
   const mostAsked = await getArticlesByOrder(amount, '{replyRequestCount: DESC}')
   const list = shuffle(Array.from(new Set([].concat.apply(newest, mostAsked)))).slice(0, amount)
 
-  const actualNumber = Math.round(list.length / people)
+  try {
+    if (list.length < amount) {
+      throw new Error(`Only ${list.length} articles haven't replied, but you requested total ${amount} articles. Please adjsut your params.`)
+    }
+  } catch (e){
+    console.error(e)
+    return
+  }
 
-  const jsons = [...Array(people).keys()]
-    .map((idx) => list.slice(idx * actualNumber, (idx + 1) * actualNumber)
-      .map((val, idx) => ({
-        ID: idx + 1,
-        Link: `https://cofacts.g0v.tw/article/${val}`
-      })
-    )
-  )
-  const sheetNames = [...Array(people).keys()].map(idx => `No. ${idx + 1}`)
+  const jsons = flat.map((num, idx) => {
+    const cursor = flat.slice(0, idx).reduce((acc, cur) => acc += cur, 0)
+    return list.slice(cursor, cursor + num).map((val, idx) => ({
+      ID: idx + 1,
+      Link: `https://cofacts.g0v.tw/article/${val}`
+    }))
+  })
+  const sheetNames = flat.map((num, idx) => `No. ${idx + 1}`)
   const workbook = {
     SheetNames: sheetNames,
     Sheets: sheetNames.reduce((acc, cur, idx) => {
       return Object.assign({}, acc, {[sheetNames[idx]]: XLSX.utils.json_to_sheet(jsons[idx])})
     }, {})
   }
+
   const timestamp = new Date().toISOString().replace(/:|-|T/g, '').split('.')[0]
   mkdirp.sync(DIST.path)
 
   XLSX.writeFileAsync(path.resolve(DIST.path, `${timestamp}-${DIST.filename}`), workbook, () => {
-    if (actualNumber !== number) console.log(`Only ${list.length} articles haven't replied, so each one get ${actualNumber} articles.`)
-    console.log('File has been saved!')
+    console.log('File has been saved: ')
+    distribution.forEach(function(el) {
+      console.log(`=> ${el.number} articles for ${el.people} people`)
+    });
   });
 })()
