@@ -124,7 +124,7 @@ async function getArticlesByOrder(amount, order) {
     }));
   });
   const sheetNames = flat.map(
-    (num, idx) => `No. ${idx + 1} (Rename tab as your name)`
+    (num, idx) => `No. ${idx + 1} (Rename tab)`
   );
   const workbook = {
     SheetNames: sheetNames,
