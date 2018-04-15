@@ -70,6 +70,21 @@ async function getArticlesByOrder(amount, order) {
   });
 }
 
+function AddHyperlinkToURL(worksheet) {
+  return Object.keys(worksheet).reduce((acc, key) => {
+    const cell = worksheet[key];
+    if (cell !== null && typeof cell === "object" && isURL(cell.v)) {
+      cell.l = {
+        Target: cell.v,
+        Tooltip: cell.v
+      };
+    }
+    acc[key] = worksheet[key];
+
+    return acc;
+  }, {});
+}
+
 (async () => {
   const options = commandLineArgs(optionDefinitions);
   const distribution = options.distribution
@@ -119,21 +134,8 @@ async function getArticlesByOrder(amount, order) {
   const workbook = {
     SheetNames: sheetNames,
     Sheets: sheetNames.reduce((acc, cur, idx) => {
-      const cells = XLSX.utils.json_to_sheet(jsons[idx]);
-
-      // Hyperlink web link
-      for (const position in cells) {
-        const cell = cells[position];
-        if (cell !== null && typeof cell === "object" && isURL(cell.v)) {
-          cell.l = {
-            Target: cell.v,
-            Tooltip: cell.v
-          };
-        }
-      }
-
       return Object.assign({}, acc, {
-        [sheetNames[idx]]: cells
+        [sheetNames[idx]]: AddHyperlinkToURL(XLSX.utils.json_to_sheet(jsons[idx]))
       });
     }, {})
   };
