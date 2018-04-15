@@ -5,12 +5,15 @@ const mkdirp = require("mkdirp");
 const commandLineArgs = require("command-line-args");
 const XLSX = require("xlsx");
 
+const { shuffle, isURL } = require("./utils");
+
 const DIST = {
   path: "dist",
   filename: "articles.xlsx"
 };
 
-const optionDefinitions = [{
+const optionDefinitions = [
+  {
     name: "people",
     alias: "p",
     type: Number,
@@ -37,25 +40,10 @@ function Distribution(assign) {
   this.people = parseInt(pair[2]);
 }
 
-function shuffle(array) {
-  return array
-    .map(item => {
-      return {
-        weight: Math.random(),
-        value: item
-      };
-    })
-    .sort((a, b) => {
-      return a.weight - b.weight;
-    })
-    .map(item => {
-      return item.value;
-    });
-}
-
 async function getArticlesByOrder(amount, order) {
   return new Promise((resolve, reject) => {
-    request.post({
+    request.post(
+      {
         url: "https://cofacts-api.g0v.tw/graphql",
         json: {
           query: `{
@@ -71,7 +59,7 @@ async function getArticlesByOrder(amount, order) {
           variables: null
         }
       },
-      function (error, response, body) {
+      function(error, response, body) {
         if (!error && response.statusCode == 200) {
           resolve(body.data.ListArticles.edges.map(item => item.node.id));
         } else {
@@ -84,10 +72,12 @@ async function getArticlesByOrder(amount, order) {
 
 (async () => {
   const options = commandLineArgs(optionDefinitions);
-  const distribution = options.distribution ?
-    options.distribution : [Distribution(`${options.number}:${options.people}`)];
+  const distribution = options.distribution
+    ? options.distribution
+    : [Distribution(`${options.number}:${options.people}`)];
   const flat = distribution.reduce(
-    (acc, cur) => acc.concat(Array(cur.people).fill(cur.number)), []
+    (acc, cur) => acc.concat(Array(cur.people).fill(cur.number)),
+    []
   );
   const amount = distribution.reduce(
     (acc, cur) => (acc += cur.number * cur.people),
@@ -120,17 +110,30 @@ async function getArticlesByOrder(amount, order) {
     return list.slice(cursor, cursor + num).map((val, idx) => ({
       ID: idx + 1,
       Link: `https://cofacts.g0v.tw/article/${val}`,
-      Done: ''
+      Done: ""
     }));
   });
-  const sheetNames = flat.map(
-    (num, idx) => `No. ${idx + 1} (Rename tab)`
-  );
+
+  const sheetNames = flat.map((num, idx) => `No. ${idx + 1} (Rename tab)`);
+
   const workbook = {
     SheetNames: sheetNames,
     Sheets: sheetNames.reduce((acc, cur, idx) => {
+      const cells = XLSX.utils.json_to_sheet(jsons[idx]);
+
+      // Hyperlink web link
+      for (const position in cells) {
+        const cell = cells[position];
+        if (cell !== null && typeof cell === "object" && isURL(cell.v)) {
+          cell.l = {
+            Target: cell.v,
+            Tooltip: cell.v
+          };
+        }
+      }
+
       return Object.assign({}, acc, {
-        [sheetNames[idx]]: XLSX.utils.json_to_sheet(jsons[idx])
+        [sheetNames[idx]]: cells
       });
     }, {})
   };
@@ -146,7 +149,7 @@ async function getArticlesByOrder(amount, order) {
     workbook,
     () => {
       console.log("File has been saved: ");
-      distribution.forEach(function (el) {
+      distribution.forEach(function(el) {
         console.log(`=> ${el.number} articles for ${el.people} people`);
       });
     }
