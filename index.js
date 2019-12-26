@@ -4,6 +4,7 @@ const request = require("request");
 const mkdirp = require("mkdirp");
 const commandLineArgs = require("command-line-args");
 const XLSX = require("xlsx");
+const { execSync } = require("child_process");
 
 const { shuffle, isURL } = require("./utils");
 
@@ -164,17 +165,20 @@ function AddHyperlinkToURL(worksheet) {
     .split(".")[0];
   mkdirp.sync(DIST.path);
 
-  const filePath = path.resolve(DIST.path, `${timestamp}-${DIST.filename}`);
+  const fileName = `${timestamp}-${DIST.filename}`;
+  const filePath = path.resolve(DIST.path)
   XLSX.writeFileAsync(
-    filePath,
+    path.resolve(DIST.path, fileName),
     workbook,
     () => {
-      console.log(`File has been saved to: ${filePath}`);
+      console.log(`File "${fileName}" has been saved to: ${filePath}`);
+
       distribution.forEach(function(el) {
         console.log(`=> ${el.number} articles for ${el.people} people`);
       });
 
-      console.log("🔜  Next step: visit https://sheets.new and choose File>Import to import the xlsx file.")
+      console.log(`🔜  Next step: visit https://sheets.new and choose File>Import to import ${fileName}`);
+      execSync(`open ${filePath}`);
     }
   );
 })();
