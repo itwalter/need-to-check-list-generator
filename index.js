@@ -4,6 +4,7 @@ const request = require("request");
 const mkdirp = require("mkdirp");
 const commandLineArgs = require("command-line-args");
 const XLSX = require("xlsx");
+const { execSync } = require("child_process");
 
 const { shuffle, isURL } = require("./utils");
 
@@ -51,6 +52,11 @@ async function getArticlesByOrder(amount, order) {
             edges {
               node {
                 id
+                text
+                hyperlinks {
+                  url
+                  title
+                }
               }
             }
           }
@@ -61,13 +67,21 @@ async function getArticlesByOrder(amount, order) {
       },
       function(error, response, body) {
         if (!error && response.statusCode == 200) {
-          resolve(body.data.ListArticles.edges.map(item => item.node.id));
+          resolve(body.data.ListArticles.edges.map(item => item.node));
         } else {
           reject(error);
         }
       }
     );
   });
+}
+
+function getArticleText({text, hyperlinks}) {
+  return (hyperlinks || []).reduce(
+    (replacedText, hyperlink) =>
+      hyperlink.title ? replacedText.replace(hyperlink.url, `[${hyperlink.title}](${hyperlink.url})`) : replacedText,
+    text.replace(/\n|\r/g, ' ')
+  )
 }
 
 function AddHyperlinkToURL(worksheet) {
@@ -104,8 +118,12 @@ function AddHyperlinkToURL(worksheet) {
     "{replyRequestCount: DESC}"
   );
   const list = shuffle(
-    Array.from(new Set([].concat.apply(newest, mostAsked)))
+    Array.from(new Set([...newest, ... mostAsked].map(({id}) => id)))
   ).slice(0, amount);
+  const idToArticle = [...newest, ... mostAsked].reduce((map, node) => {
+    map[node.id] = node;
+    return map;
+  }, {});
 
   try {
     if (list.length < amount) {
@@ -122,9 +140,10 @@ function AddHyperlinkToURL(worksheet) {
 
   const jsons = flat.map((num, idx) => {
     const cursor = flat.slice(0, idx).reduce((acc, cur) => (acc += cur), 0);
-    return list.slice(cursor, cursor + num).map((val, idx) => ({
+    return list.slice(cursor, cursor + num).map((articleId, idx) => ({
       ID: idx + 1,
-      Link: `https://cofacts.g0v.tw/article/${val}`,
+      Link: `https://cofacts.g0v.tw/article/${articleId}`,
+      Text: getArticleText(idToArticle[articleId]),
       Done: ""
     }));
   });
@@ -146,14 +165,20 @@ function AddHyperlinkToURL(worksheet) {
     .split(".")[0];
   mkdirp.sync(DIST.path);
 
+  const fileName = `${timestamp}-${DIST.filename}`;
+  const filePath = path.resolve(DIST.path)
   XLSX.writeFileAsync(
-    path.resolve(DIST.path, `${timestamp}-${DIST.filename}`),
+    path.resolve(DIST.path, fileName),
     workbook,
     () => {
-      console.log("File has been saved: ");
+      console.log(`File "${fileName}" has been saved to: ${filePath}`);
+
       distribution.forEach(function(el) {
         console.log(`=> ${el.number} articles for ${el.people} people`);
       });
+
+      console.log(`🔜  Next step: visit https://sheets.new and choose File>Import to import ${fileName}`);
+      execSync(`open ${filePath}`);
     }
   );
 })();
